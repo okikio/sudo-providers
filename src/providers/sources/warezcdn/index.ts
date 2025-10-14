@@ -1,119 +1,101 @@
-import { load } from 'cheerio';
-
-import { flags } from '@/entrypoint/utils/targets';
-import { SourcererEmbed, makeSourcerer } from '@/providers/base';
+import { SourcererEmbed, SourcererOutput, makeSourcerer } from '@/providers/base';
 import { mixdropScraper } from '@/providers/embeds/mixdrop';
 import { warezcdnembedHlsScraper } from '@/providers/embeds/warezcdn/hls';
 import { warezcdnembedMp4Scraper } from '@/providers/embeds/warezcdn/mp4';
 import { warezPlayerScraper } from '@/providers/embeds/warezcdn/warezplayer';
+import { ScrapeContext } from '@/utils/context';
 import { NotFoundError } from '@/utils/errors';
 
-import { getExternalPlayerUrl, warezcdnBase } from './common';
-import { SerieAjaxResponse } from './types';
+import { warezcdnBase } from './common';
+// import { cachedSeasonsRes } from './types';
+
+async function getEmbeds(id: string, servers: string, ctx: ScrapeContext): Promise<SourcererOutput> {
+  const embeds: SourcererEmbed[] = [];
+
+  for (const server of servers.split(',')) {
+    await ctx.proxiedFetcher<string>(`/getEmbed.php`, {
+      baseUrl: warezcdnBase,
+      headers: {
+        Referer: `${warezcdnBase}/getEmbed.php?${new URLSearchParams({ id, sv: server })}`,
+      },
+      method: 'HEAD',
+      query: { id, sv: server },
+    });
+
+    const embedPage = await ctx.proxiedFetcher<string>(`/getPlay.php`, {
+      baseUrl: warezcdnBase,
+      headers: {
+        Referer: `${warezcdnBase}/getEmbed.php?${new URLSearchParams({ id, sv: server })}`,
+      },
+      query: { id, sv: server },
+    });
+
+    const url = embedPage.match(/window.location.href\s*=\s*"([^"]+)"/)?.[1];
+
+    if (url && server === 'warezcdn') {
+      embeds.push(
+        { embedId: warezcdnembedHlsScraper.id, url },
+        { embedId: warezcdnembedMp4Scraper.id, url },
+        { embedId: warezPlayerScraper.id, url },
+      );
+    } else if (url && server === 'mixdrop') embeds.push({ embedId: mixdropScraper.id, url });
+  }
+
+  return { embeds };
+}
 
 export const warezcdnScraper = makeSourcerer({
   id: 'warezcdn',
   name: 'WarezCDN',
-  rank: 81,
-  flags: [flags.CORS_ALLOWED],
+  disabled: true,
+  rank: 115,
+  flags: [],
   scrapeMovie: async (ctx) => {
     if (!ctx.media.imdbId) throw new NotFoundError('This source requires IMDB id.');
-
     const serversPage = await ctx.proxiedFetcher<string>(`/filme/${ctx.media.imdbId}`, {
       baseUrl: warezcdnBase,
     });
-    const $ = load(serversPage);
 
-    const embedsHost = $('.hostList.active [data-load-embed]').get();
+    const [, id, servers] = serversPage.match(/let\s+data\s*=\s*'\[\s*\{\s*"id":"([^"]+)".*?"servers":"([^"]+)"/)!;
+    if (!id || !servers) throw new NotFoundError('Failed to find episode id');
+    ctx.progress(40);
 
-    const embeds: SourcererEmbed[] = [];
-
-    embedsHost.forEach(async (element) => {
-      const embedHost = $(element).attr('data-load-embed-host')!;
-      const embedUrl = $(element).attr('data-load-embed')!;
-
-      if (embedHost === 'mixdrop') {
-        const realEmbedUrl = await getExternalPlayerUrl(ctx, 'mixdrop', embedUrl);
-        if (!realEmbedUrl) throw new Error('Could not find embed url');
-        embeds.push({
-          embedId: mixdropScraper.id,
-          url: realEmbedUrl,
-        });
-      } else if (embedHost === 'warezcdn') {
-        embeds.push(
-          {
-            embedId: warezcdnembedHlsScraper.id,
-            url: embedUrl,
-          },
-          {
-            embedId: warezcdnembedMp4Scraper.id,
-            url: embedUrl,
-          },
-          {
-            embedId: warezPlayerScraper.id,
-            url: embedUrl,
-          },
-        );
-      }
-    });
-
-    return {
-      embeds,
-    };
+    return getEmbeds(id, servers, ctx);
   },
-  scrapeShow: async (ctx) => {
-    if (!ctx.media.imdbId) throw new NotFoundError('This source requires IMDB id.');
+  // scrapeShow: async (ctx) => {
+  //   if (!ctx.media.imdbId) throw new NotFoundError('This source requires IMDB id.');
+  //   const url = `${warezcdnBase}/serie/${ctx.media.imdbId}/${ctx.media.season.number}/${ctx.media.episode.number}`;
+  //   const serversPage = await ctx.proxiedFetcher<string>(url);
 
-    const url = `${warezcdnBase}/serie/${ctx.media.imdbId}/${ctx.media.season.number}/${ctx.media.episode.number}`;
+  //   const seasonsApi = serversPage.match(/var\s+cachedSeasons\s*=\s*"([^"]+)"/)?.[1];
+  //   if (!seasonsApi) throw new NotFoundError('Failed to find data');
+  //   ctx.progress(40);
 
-    const serversPage = await ctx.proxiedFetcher<string>(url);
+  //   const streamsData = await ctx.proxiedFetcher<cachedSeasonsRes>(seasonsApi, {
+  //     baseUrl: warezcdnBase,
+  //     headers: {
+  //       Referer: url,
+  //       'X-Requested-With': 'XMLHttpRequest',
+  //     },
+  //   });
 
-    const episodeId = serversPage.match(/\$\('\[data-load-episode-content="(\d+)"\]'\)/)?.[1];
+  //   const season = Object.values(streamsData.seasons).find((s) => s.name === ctx.media.season.number.toString());
+  //   if (!season) throw new NotFoundError('Failed to find season id');
+  //   const episode = Object.values(season.episodes).find((e) => e.name === ctx.media.season.number.toString())?.id;
+  //   if (!episode) throw new NotFoundError('Failed to find episode id');
 
-    if (!episodeId) throw new NotFoundError('Failed to find episode id');
+  //   const episodeData = await ctx.proxiedFetcher<string>('/core/ajax.php', {
+  //     baseUrl: warezcdnBase,
+  //     headers: {
+  //       Referer: url,
+  //       'X-Requested-With': 'XMLHttpRequest',
+  //     },
+  //     query: { audios: episode },
+  //   });
 
-    const streamsData = await ctx.proxiedFetcher<string>(`/serieAjax.php`, {
-      method: 'POST',
-      baseUrl: warezcdnBase,
-      body: new URLSearchParams({
-        getAudios: episodeId,
-      }),
-      headers: {
-        Origin: warezcdnBase,
-        Referer: url,
-        'X-Requested-With': 'XMLHttpRequest',
-      },
-    });
+  //   const [, id, servers] = episodeData.replace(/\\"/g, '"').match(/"\[\s*\{\s*"id":"([^"]+)".*?"servers":"([^"]+)"/)!;
+  //   if (!id || !servers) throw new NotFoundError('Failed to find episode id');
 
-    const streams: SerieAjaxResponse = JSON.parse(streamsData);
-    const list = streams.list['0'];
-    const embeds: SourcererEmbed[] = [];
-
-    // 3 means ok
-    if (list.mixdropStatus === '3') {
-      const realEmbedUrl = await getExternalPlayerUrl(ctx, 'mixdrop', list.id);
-      if (!realEmbedUrl) throw new Error('Could not find embed url');
-      embeds.push({
-        embedId: mixdropScraper.id,
-        url: realEmbedUrl,
-      });
-    }
-
-    if (list.warezcdnStatus === '3') {
-      embeds.push(
-        {
-          embedId: warezcdnembedHlsScraper.id,
-          url: list.id,
-        },
-        {
-          embedId: warezcdnembedMp4Scraper.id,
-          url: list.id,
-        },
-      );
-    }
-
-    return {
-      embeds,
-    };
-  },
+  //   return getEmbeds(id, servers, ctx);
+  // },
 });

@@ -1,34 +1,44 @@
+/* eslint-disable no-console */
 import { flags } from '@/entrypoint/utils/targets';
 import { SourcererEmbed, SourcererOutput, makeSourcerer } from '@/providers/base';
 import { MovieScrapeContext, ShowScrapeContext } from '@/utils/context';
 import { NotFoundError } from '@/utils/errors';
 
-const baseUrl = 'https://autoembed.cc/';
+const apiUrl = 'https://tom.autoembed.cc';
+// const baseUrl = 'https://watch.autoembed.cc';
 
 async function comboScraper(ctx: ShowScrapeContext | MovieScrapeContext): Promise<SourcererOutput> {
-  const playerPage = await ctx.proxiedFetcher(`/embed/player.php`, {
-    baseUrl,
+  const mediaType = ctx.media.type === 'show' ? 'tv' : 'movie';
+  let id = ctx.media.tmdbId;
+
+  if (ctx.media.type === 'show') {
+    id = `${id}/${ctx.media.season.number}/${ctx.media.episode.number}`;
+  }
+
+  const data = await ctx.proxiedFetcher(`/api/getVideoSource`, {
+    baseUrl: apiUrl,
     query: {
-      id: ctx.media.tmdbId,
-      ...(ctx.media.type === 'show' && {
-        s: ctx.media.season.number.toString(),
-        e: ctx.media.episode.number.toString(),
-      }),
+      type: mediaType,
+      id,
+    },
+    headers: {
+      Referer: apiUrl,
+      Origin: apiUrl,
     },
   });
 
-  const fileDataMatch = playerPage.match(/"file": (\[.*?\])/s);
-  if (!fileDataMatch[1]) throw new NotFoundError('No data found');
+  if (!data) throw new NotFoundError('Failed to fetch video source');
+  if (!data.videoSource) throw new NotFoundError('No video source found');
+  ctx.progress(50);
 
-  const fileData: { title: string; file: string }[] = JSON.parse(fileDataMatch[1].replace(/,\s*\]$/, ']'));
+  const embeds: SourcererEmbed[] = [
+    {
+      embedId: `autoembed-english`,
+      url: data.videoSource,
+    },
+  ];
 
-  const embeds: SourcererEmbed[] = [];
-
-  for (const stream of fileData) {
-    const url = stream.file;
-    if (!url) continue;
-    embeds.push({ embedId: `autoembed-${stream.title.toLowerCase().trim()}`, url });
-  }
+  ctx.progress(90);
 
   return {
     embeds,
@@ -38,7 +48,7 @@ async function comboScraper(ctx: ShowScrapeContext | MovieScrapeContext): Promis
 export const autoembedScraper = makeSourcerer({
   id: 'autoembed',
   name: 'Autoembed',
-  rank: 10,
+  rank: 110,
   disabled: true,
   flags: [flags.CORS_ALLOWED],
   scrapeMovie: comboScraper,

@@ -18,7 +18,7 @@ export async function getVideoSources(
   } else if (media.type === 'movie') {
     path = `/v1/movies/view`;
   }
-  const data = await ctx.fetcher<StreamsDataResult>(path, {
+  const data = await ctx.proxiedFetcher<StreamsDataResult>(path, {
     baseUrl,
     query: { expand: 'streams,subtitles', id },
   });

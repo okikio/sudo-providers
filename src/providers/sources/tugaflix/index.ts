@@ -10,7 +10,7 @@ import { baseUrl, parseSearch } from './common';
 export const tugaflixScraper = makeSourcerer({
   id: 'tugaflix',
   name: 'Tugaflix',
-  rank: 73,
+  rank: 70,
   flags: [flags.IP_LOCKED],
   scrapeMovie: async (ctx) => {
     const searchResults = parseSearch(
@@ -25,6 +25,7 @@ export const tugaflixScraper = makeSourcerer({
 
     const url = searchResults.find((x) => x && compareMedia(ctx.media, x.title, x.year))?.url;
     if (!url) throw new NotFoundError('No watchable item found');
+    ctx.progress(50);
 
     const videoPage = await ctx.proxiedFetcher<string>(url, {
       method: 'POST',
@@ -59,6 +60,7 @@ export const tugaflixScraper = makeSourcerer({
         });
       }
     }
+    ctx.progress(90);
 
     return {
       embeds,
@@ -77,6 +79,7 @@ export const tugaflixScraper = makeSourcerer({
 
     const url = searchResults.find((x) => x && compareMedia(ctx.media, x.title, x.year))?.url;
     if (!url) throw new NotFoundError('No watchable item found');
+    ctx.progress(50);
 
     const s = ctx.media.season.number < 10 ? `0${ctx.media.season.number}` : ctx.media.season.number.toString();
     const e = ctx.media.episode.number < 10 ? `0${ctx.media.episode.number}` : ctx.media.episode.number.toString();
@@ -108,6 +111,7 @@ export const tugaflixScraper = makeSourcerer({
         url: finalUrl,
       });
     }
+    ctx.progress(90);
 
     return {
       embeds,

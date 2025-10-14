@@ -34,6 +34,7 @@ async function comboScraper(ctx: ShowScrapeContext | MovieScrapeContext): Promis
 
   const watchPageUrl = searchResults.find((x) => x && compareMedia(ctx.media, x.title, x.year))?.url;
   if (!watchPageUrl) throw new NotFoundError('No watchable item found');
+  ctx.progress(50);
 
   const watchPage = await ctx.proxiedFetcher(watchPageUrl.replace('/movie', '/w'), { baseUrl });
 
@@ -67,6 +68,7 @@ async function comboScraper(ctx: ShowScrapeContext | MovieScrapeContext): Promis
     },
     {} as FileBasedStream['qualities'],
   );
+  ctx.progress(90);
 
   return {
     embeds: [],
@@ -88,7 +90,7 @@ async function comboScraper(ctx: ShowScrapeContext | MovieScrapeContext): Promis
 export const fsharetvScraper = makeSourcerer({
   id: 'fsharetv',
   name: 'FshareTV',
-  rank: 93,
+  rank: 190,
   flags: [],
   scrapeMovie: comboScraper,
 });

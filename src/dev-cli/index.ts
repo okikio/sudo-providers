@@ -83,7 +83,8 @@ async function runQuestions() {
       name: 'source',
       message: 'Select a source',
       choices: sources.map((source) => ({
-        message: `[${source.type.toLocaleUpperCase()}] ${source.name} ${joinMediaTypes(source.mediaTypes)}`.trim(),
+        message:
+          `[${source.type.toLocaleUpperCase()}] [${source.rank}] ${source.name} ${joinMediaTypes(source.mediaTypes)}`.trim(),
         name: source.id,
       })),
     },

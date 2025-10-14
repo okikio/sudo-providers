@@ -8,7 +8,6 @@ import { Stream } from '@/providers/streams';
 import { ScrapeContext } from '@/utils/context';
 import { NotFoundError } from '@/utils/errors';
 import { reorderOnIdList } from '@/utils/list';
-import { addOpenSubtitlesCaptions } from '@/utils/opensubtitles';
 import { requiresProxy, setupProxy } from '@/utils/proxy';
 import { isValidStream, validatePlayableStream } from '@/utils/valid';
 
@@ -38,7 +37,6 @@ export type ProviderRunnerOptions = {
   events?: FullScraperEvents;
   media: ScrapeMedia;
   proxyStreams?: boolean; // temporary
-  disableOpensubtitles?: boolean;
 };
 
 export async function runAllProviders(list: ProviderList, ops: ProviderRunnerOptions): Promise<RunOutput | null> {
@@ -115,18 +113,6 @@ export async function runAllProviders(list: ProviderList, ops: ProviderRunnerOpt
       const playableStream = await validatePlayableStream(output.stream[0], ops, source.id);
       if (!playableStream) throw new NotFoundError('No streams found');
 
-      // opensubtitles
-      if (!ops.disableOpensubtitles)
-        playableStream.captions = await addOpenSubtitlesCaptions(
-          playableStream.captions,
-          ops,
-          btoa(
-            `${ops.media.imdbId}${
-              ops.media.type === 'show' ? `.${ops.media.season.number}.${ops.media.episode.number}` : ''
-            }`,
-          ),
-        );
-
       return {
         sourceId: source.id,
         stream: playableStream,
@@ -178,17 +164,6 @@ export async function runAllProviders(list: ProviderList, ops: ProviderRunnerOpt
         const playableStream = await validatePlayableStream(embedOutput.stream[0], ops, embed.embedId);
         if (!playableStream) throw new NotFoundError('No streams found');
 
-        // opensubtitles
-        if (!ops.disableOpensubtitles)
-          playableStream.captions = await addOpenSubtitlesCaptions(
-            playableStream.captions,
-            ops,
-            btoa(
-              `${ops.media.imdbId}${
-                ops.media.type === 'show' ? `.${ops.media.season.number}.${ops.media.episode.number}` : ''
-              }`,
-            ),
-          );
         embedOutput.stream = [playableStream];
       } catch (error) {
         const updateParams: UpdateEvent = {

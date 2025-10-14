@@ -28,6 +28,7 @@ async function comboScraper(ctx: MovieScrapeContext): Promise<SourcererOutput> {
 
   const id = search.find((v) => v && compareMedia(ctx.media, v.title, v.year))?.id;
   if (!id) throw new NotFoundError('No watchable item found');
+  ctx.progress(20);
 
   const details: itemDetails = JSON.parse(
     await ctx.proxiedFetcher<string>('/get', {
@@ -40,6 +41,7 @@ async function comboScraper(ctx: MovieScrapeContext): Promise<SourcererOutput> {
     }),
   );
   if (!details.message.video) throw new Error('Failed to get the stream');
+  ctx.progress(40);
 
   const keyParams: renewResponse = JSON.parse(
     await ctx.proxiedFetcher<string>('/renew', {
@@ -51,6 +53,7 @@ async function comboScraper(ctx: MovieScrapeContext): Promise<SourcererOutput> {
     }),
   );
   if (!keyParams.k) throw new Error('Failed to get the key');
+  ctx.progress(60);
 
   const server = details.message.server === '1' ? 'https://vid.ee3.me/vid/' : 'https://vault.rips.cc/video/';
   const k = keyParams.k;
@@ -67,6 +70,7 @@ async function comboScraper(ctx: MovieScrapeContext): Promise<SourcererOutput> {
       language: 'en',
     });
   }
+  ctx.progress(90);
 
   return {
     embeds: [],
@@ -91,7 +95,8 @@ async function comboScraper(ctx: MovieScrapeContext): Promise<SourcererOutput> {
 export const ee3Scraper = makeSourcerer({
   id: 'ee3',
   name: 'EE3',
-  rank: 111,
+  rank: 120,
+  disabled: true,
   flags: [flags.CORS_ALLOWED],
   scrapeMovie: comboScraper,
 });

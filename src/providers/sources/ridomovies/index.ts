@@ -1,6 +1,5 @@
 import { load } from 'cheerio';
 
-import { flags } from '@/entrypoint/utils/targets';
 import { SourcererEmbed, makeSourcerer } from '@/providers/base';
 import { closeLoadScraper } from '@/providers/embeds/closeload';
 import { ridooScraper } from '@/providers/embeds/ridoo';
@@ -27,6 +26,7 @@ const universalScraper = async (ctx: MovieScrapeContext | ShowScrapeContext) => 
   });
   const targetMedia = mediaData.find((m) => m.name === ctx.media.title && m.year === ctx.media.releaseYear.toString());
   if (!targetMedia?.fullSlug) throw new NotFoundError('No watchable item found');
+  ctx.progress(40);
 
   let iframeSourceUrl = `/${targetMedia.fullSlug}/videos`;
 
@@ -52,6 +52,7 @@ const universalScraper = async (ctx: MovieScrapeContext | ShowScrapeContext) => 
   const iframeSource$ = load(iframeSource.data[0].url);
   const iframeUrl = iframeSource$('iframe').attr('data-src');
   if (!iframeUrl) throw new NotFoundError('No watchable item found');
+  ctx.progress(60);
 
   const embeds: SourcererEmbed[] = [];
   if (iframeUrl.includes('closeload')) {
@@ -66,6 +67,8 @@ const universalScraper = async (ctx: MovieScrapeContext | ShowScrapeContext) => 
       url: iframeUrl,
     });
   }
+  ctx.progress(90);
+
   return {
     embeds,
   };
@@ -74,8 +77,9 @@ const universalScraper = async (ctx: MovieScrapeContext | ShowScrapeContext) => 
 export const ridooMoviesScraper = makeSourcerer({
   id: 'ridomovies',
   name: 'RidoMovies',
-  rank: 100,
-  flags: [flags.CORS_ALLOWED],
+  rank: 210,
+  flags: [],
+  disabled: true,
   scrapeMovie: universalScraper,
   scrapeShow: universalScraper,
 });

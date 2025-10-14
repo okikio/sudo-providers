@@ -3,6 +3,7 @@ import { load } from 'cheerio';
 import { flags } from '@/entrypoint/utils/targets';
 import { Caption, labelToLanguageCode } from '@/providers/captions';
 import { Stream } from '@/providers/streams';
+import { compareMedia } from '@/utils/compare';
 import { MovieScrapeContext, ShowScrapeContext } from '@/utils/context';
 import { NotFoundError } from '@/utils/errors';
 import { convertPlaylistsToDataUrls } from '@/utils/playlist';
@@ -10,7 +11,7 @@ import { convertPlaylistsToDataUrls } from '@/utils/playlist';
 import { InfoResponse } from './types';
 import { SourcererOutput, makeSourcerer } from '../../base';
 
-const baseUrl = 'https://soaper.tv';
+const baseUrl = 'https://soaper.cc';
 
 const universalScraper = async (ctx: MovieScrapeContext | ShowScrapeContext): Promise<SourcererOutput> => {
   const searchResult = await ctx.proxiedFetcher('/search.html', {
@@ -19,10 +20,21 @@ const universalScraper = async (ctx: MovieScrapeContext | ShowScrapeContext): Pr
       keyword: ctx.media.title,
     },
   });
-  const searchResult$ = load(searchResult);
-  let showLink = searchResult$('a')
-    .filter((_, el) => searchResult$(el).text() === ctx.media.title)
-    .attr('href');
+  const search$ = load(searchResult);
+
+  const searchResults: { title: string; year?: number | undefined; url: string }[] = [];
+
+  search$('.thumbnail').each((_, element) => {
+    const title = search$(element).find('h5').find('a').first().text().trim();
+    const year = search$(element).find('.img-tip').first().text().trim();
+    const url = search$(element).find('h5').find('a').first().attr('href');
+
+    if (!title || !url) return;
+
+    searchResults.push({ title, year: year ? parseInt(year, 10) : undefined, url });
+  });
+
+  let showLink = searchResults.find((x) => x && compareMedia(ctx.media, x.title, x.year))?.url;
   if (!showLink) throw new NotFoundError('Content not found');
 
   if (ctx.media.type === 'show') {
@@ -45,6 +57,7 @@ const universalScraper = async (ctx: MovieScrapeContext | ShowScrapeContext): Pr
   const pass = contentPage$('#hId').attr('value');
 
   if (!pass) throw new NotFoundError('Content not found');
+  ctx.progress(50);
 
   const formData = new URLSearchParams();
   formData.append('pass', pass);
@@ -58,39 +71,57 @@ const universalScraper = async (ctx: MovieScrapeContext | ShowScrapeContext): Pr
     body: formData,
     headers: {
       referer: `${baseUrl}${showLink}`,
+      'User-Agent':
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
+      'Viewport-Width': '375',
     },
   });
 
   const streamResJson: InfoResponse = JSON.parse(streamRes);
 
   const captions: Caption[] = [];
-  for (const sub of streamResJson.subs) {
-    // Some subtitles are named <Language>.srt, some are named <LanguageCode>:hi, or just <LanguageCode>
-    let language: string | null = '';
-    if (sub.name.includes('.srt')) {
-      language = labelToLanguageCode(sub.name.split('.srt')[0]);
-    } else if (sub.name.includes(':')) {
-      language = sub.name.split(':')[0];
-    } else {
-      language = sub.name;
-    }
-    if (!language) continue;
+  if (Array.isArray(streamResJson.subs)) {
+    for (const sub of streamResJson.subs) {
+      // Some subtitles are named <Language>.srt, some are named <LanguageCode>:hi, or just <LanguageCode>
+      let language: string | null = '';
+      if (sub.name.includes('.srt')) {
+        const langName = sub.name.split('.srt')[0].trim();
+        language = labelToLanguageCode(langName);
+      } else if (sub.name.includes(':')) {
+        const langName = sub.name.split(':')[0].trim();
+        language = labelToLanguageCode(langName);
+      } else {
+        const langName = sub.name.trim();
+        language = labelToLanguageCode(langName);
+      }
+      if (!language) continue;
 
-    captions.push({
-      id: sub.path,
-      url: sub.path,
-      type: 'srt',
-      hasCorsRestrictions: false,
-      language,
-    });
+      captions.push({
+        id: sub.path,
+        url: `${baseUrl}${sub.path}`,
+        type: 'srt',
+        hasCorsRestrictions: false,
+        language,
+      });
+    }
   }
+  ctx.progress(90);
+
+  // Headers needed for the M3U8 proxy
+  const headers = {
+    referer: `${baseUrl}${showLink}`,
+    'User-Agent':
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
+    'Viewport-Width': '375',
+    Origin: baseUrl,
+  };
 
   return {
     embeds: [],
     stream: [
       {
         id: 'primary',
-        playlist: await convertPlaylistsToDataUrls(ctx.proxiedFetcher, `${baseUrl}/${streamResJson.val}`),
+        playlist: await convertPlaylistsToDataUrls(ctx.proxiedFetcher, `${baseUrl}/${streamResJson.val}`, headers),
         type: 'hls',
         proxyDepth: 2,
         flags: [flags.CORS_ALLOWED],
@@ -100,7 +131,11 @@ const universalScraper = async (ctx: MovieScrapeContext | ShowScrapeContext): Pr
         ? [
             {
               id: 'backup',
-              playlist: await convertPlaylistsToDataUrls(ctx.proxiedFetcher, `${baseUrl}/${streamResJson.val_bak}`),
+              playlist: await convertPlaylistsToDataUrls(
+                ctx.proxiedFetcher,
+                `${baseUrl}/${streamResJson.val_bak}`,
+                headers,
+              ),
               type: 'hls',
               flags: [flags.CORS_ALLOWED],
               proxyDepth: 2,
@@ -115,7 +150,8 @@ const universalScraper = async (ctx: MovieScrapeContext | ShowScrapeContext): Pr
 export const soaperTvScraper = makeSourcerer({
   id: 'soapertv',
   name: 'SoaperTV',
-  rank: 126,
+  rank: 130,
+  disabled: true,
   flags: [flags.CORS_ALLOWED],
   scrapeMovie: universalScraper,
   scrapeShow: universalScraper,

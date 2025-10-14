@@ -1,103 +1,44 @@
 import { flags } from '@/entrypoint/utils/targets';
-import { makeSourcerer } from '@/providers/base';
-import { Caption } from '@/providers/captions';
+import { SourcererOutput, makeSourcerer } from '@/providers/base';
+import { MovieScrapeContext, ShowScrapeContext } from '@/utils/context';
 import { NotFoundError } from '@/utils/errors';
 
-import { getCaptions } from './captions';
-import { Season } from './types';
+const BASE_URL = 'https://isut.streamflix.one';
 
-const insertUnitBase = 'https://api.insertunit.ws/';
+async function comboScraper(ctx: ShowScrapeContext | MovieScrapeContext): Promise<SourcererOutput> {
+  const embedPage = await ctx.fetcher(
+    `${BASE_URL}/api/source/${ctx.media.type === 'movie' ? `${ctx.media.tmdbId}` : `${ctx.media.tmdbId}/${ctx.media.season.number}/${ctx.media.episode.number}`}`,
+  );
+
+  // Parse the response and extract the file URL from the first source
+  const sources = embedPage.sources;
+  if (!sources || sources.length === 0) throw new NotFoundError('No sources found');
+
+  const file = sources[0].file;
+  if (!file) throw new NotFoundError('No file URL found');
+
+  ctx.progress(90);
+
+  return {
+    embeds: [],
+    stream: [
+      {
+        id: 'primary',
+        playlist: file,
+        type: 'hls',
+        flags: [flags.CORS_ALLOWED],
+        captions: [],
+      },
+    ],
+  };
+}
 
 export const insertunitScraper = makeSourcerer({
   id: 'insertunit',
   name: 'Insertunit',
+  rank: 12,
   disabled: true,
-  rank: 60,
-  flags: [flags.CORS_ALLOWED],
-  async scrapeShow(ctx) {
-    const playerData = await ctx.fetcher<string>(`/embed/imdb/${ctx.media.imdbId}`, {
-      baseUrl: insertUnitBase,
-    });
-    ctx.progress(30);
-
-    const seasonDataJSONregex = /seasons:(.*)/;
-    const seasonData = seasonDataJSONregex.exec(playerData);
-
-    if (seasonData === null || seasonData[1] === null) {
-      throw new NotFoundError('No result found');
-    }
-    ctx.progress(60);
-
-    const seasonTable: Season[] = JSON.parse(seasonData[1]) as Season[];
-
-    const currentSeason = seasonTable.find(
-      (seasonElement) => seasonElement.season === ctx.media.season.number && !seasonElement.blocked,
-    );
-
-    const currentEpisode = currentSeason?.episodes.find((episodeElement) =>
-      episodeElement.episode.includes(ctx.media.episode.number.toString()),
-    );
-
-    if (!currentEpisode?.hls) throw new NotFoundError('No result found');
-
-    let captions: Caption[] = [];
-
-    if (currentEpisode.cc != null) {
-      captions = await getCaptions(currentEpisode.cc);
-    }
-
-    ctx.progress(95);
-
-    return {
-      embeds: [],
-      stream: [
-        {
-          id: 'primary',
-          playlist: currentEpisode.hls,
-          type: 'hls',
-          flags: [flags.CORS_ALLOWED],
-          captions,
-        },
-      ],
-    };
-  },
-  async scrapeMovie(ctx) {
-    const playerData = await ctx.fetcher<string>(`/embed/imdb/${ctx.media.imdbId}`, {
-      baseUrl: insertUnitBase,
-    });
-    ctx.progress(35);
-
-    const streamRegex = /hls: "([^"]*)/;
-    const streamData = streamRegex.exec(playerData);
-
-    if (streamData === null || streamData[1] === null) {
-      throw new NotFoundError('No result found');
-    }
-    ctx.progress(75);
-
-    const subtitleRegex = /cc: (.*)/;
-    const subtitleJSONData = subtitleRegex.exec(playerData);
-
-    let captions: Caption[] = [];
-
-    if (subtitleJSONData != null && subtitleJSONData[1] != null) {
-      const subtitleData = JSON.parse(subtitleJSONData[1]);
-      captions = await getCaptions(subtitleData);
-    }
-
-    ctx.progress(90);
-
-    return {
-      embeds: [],
-      stream: [
-        {
-          id: 'primary',
-          type: 'hls',
-          playlist: streamData[1],
-          flags: [flags.CORS_ALLOWED],
-          captions,
-        },
-      ],
-    };
-  },
+  flags: [flags.CORS_ALLOWED, flags.IP_LOCKED],
+  scrapeMovie: comboScraper,
+  scrapeShow: comboScraper,
 });
