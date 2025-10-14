@@ -12,11 +12,12 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
 
-      - uses: pnpm/action-setup@v3
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
-          version: 8
+          version: 10
 
       - name: Install Node.js
         uses: actions/setup-node@v6
@@ -52,4 +53,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v2
+        uses: actions/deploy-pages@v4
