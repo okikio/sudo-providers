@@ -95,5 +95,5 @@
     "set-cookie-parser": "^2.7.1",
     "unpacker": "^1.0.1"
   },
-  "packageManager": "pnpm@9.14.4"
+  "packageManager": "pnpm@10.18.3"
 }
