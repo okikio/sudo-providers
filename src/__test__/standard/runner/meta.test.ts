@@ -33,6 +33,7 @@ describe('ProviderControls.getMetadata()', () => {
       id: 'z',
       name: 'Z',
       rank: mockSources.fullSourceZBoth.rank,
+      flags: [],
       mediaTypes: ['movie', 'show'],
     });
   });
@@ -49,6 +50,7 @@ describe('ProviderControls.getMetadata()', () => {
       id: 'x',
       name: 'X',
       rank: mockEmbeds.fullEmbedX.rank,
+      flags: [],
     });
   });
 });

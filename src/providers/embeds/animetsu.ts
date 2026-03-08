@@ -5,10 +5,10 @@ import { EmbedOutput, makeEmbed } from '../base';
 
 const ANIMETSU_SERVERS = ['pahe', 'zoro', 'zaza', 'meg', 'bato'] as const;
 
-const baseUrl = 'https://backend.animetsu.to';
+const baseUrl = 'https://backend.animetsu.net';
 const headers = {
-  referer: 'https://animetsu.to/',
-  origin: 'https://backend.animetsu.to',
+  referer: 'https://animetsu.net/',
+  origin: 'https://backend.animetsu.net',
   accept: 'application/json, text/plain, */*',
   'User-Agent':
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -17,8 +17,9 @@ const headers = {
 export function makeAnimetsuEmbed(id: string, rank: number = 100) {
   return makeEmbed({
     id: `animetsu-${id}`,
-    name: `${id.charAt(0).toUpperCase() + id.slice(1)}`,
+    name: `Animetsu ${id.charAt(0).toUpperCase() + id.slice(1)}`,
     rank,
+    flags: [],
     async scrape(ctx): Promise<EmbedOutput> {
       const serverName = id as (typeof ANIMETSU_SERVERS)[number];
 
@@ -49,20 +50,6 @@ export function makeAnimetsuEmbed(id: string, rank: number = 100) {
       const sourceType = source.type;
       const sourceQuality = source.quality;
 
-      let streamHeaders = { ...headers };
-
-      // change headers if the url has backend.animetsu.cc bc they tried to make it harder
-      if (streamUrl.includes('animetsu.cc')) {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { referer, origin, ...restHeaders } = streamHeaders;
-
-        streamHeaders = {
-          ...restHeaders,
-          origin: 'https://backend.animetsu.cc',
-          referer: 'https://backend.animetsu.cc/',
-        };
-      }
-
       ctx.progress(100);
 
       if (sourceType === 'mp4') {
@@ -86,7 +73,7 @@ export function makeAnimetsuEmbed(id: string, rank: number = 100) {
                 },
               },
               type: 'file',
-              headers: streamHeaders,
+              headers,
               flags: [],
             },
           ],
@@ -99,7 +86,7 @@ export function makeAnimetsuEmbed(id: string, rank: number = 100) {
             id: 'primary',
             type: 'hls',
             playlist: streamUrl,
-            headers: streamHeaders,
+            headers,
             flags: [],
             captions: [],
           },

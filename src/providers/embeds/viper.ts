@@ -8,6 +8,7 @@ export const viperScraper = makeEmbed({
   name: 'Viper',
   rank: 182,
   disabled: true,
+  flags: [flags.CORS_ALLOWED],
   async scrape(ctx) {
     const apiResponse = await ctx.proxiedFetcher.full<{
       source: string;
@@ -34,7 +35,8 @@ export const viperScraper = makeEmbed({
         {
           type: 'hls',
           id: 'primary',
-          playlist: createM3U8ProxyUrl(playlistUrl, headers),
+          playlist: createM3U8ProxyUrl(playlistUrl, ctx.features, headers),
+          headers,
           flags: [flags.CORS_ALLOWED],
           captions: [],
         },

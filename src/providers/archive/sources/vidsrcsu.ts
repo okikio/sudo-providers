@@ -5,14 +5,14 @@ import { NotFoundError } from '@/utils/errors';
 import { createM3U8ProxyUrl, updateM3U8ProxyUrl } from '@/utils/proxy';
 
 // REQUIRES A PROXY FOR MOST SERVERS set it up here https://github.com/Pasithea0/M3U8-Proxy
-function createProxyUrl(originalUrl: string, referer: string): string {
+function createProxyUrl(originalUrl: string, referer: string, features?: any): string {
   const headers = {
     referer,
   };
-  return createM3U8ProxyUrl(originalUrl, headers);
+  return createM3U8ProxyUrl(originalUrl, features, headers);
 }
 
-function processProxiedURL(url: string): string {
+function processProxiedURL(url: string, ctx: MovieScrapeContext | ShowScrapeContext): string {
   // Handle orbitproxy URLs
   if (url.includes('orbitproxy')) {
     try {
@@ -25,7 +25,7 @@ function processProxiedURL(url: string): string {
           const originalUrl = jsonData.u;
           const referer = jsonData.r || '';
 
-          return createProxyUrl(originalUrl, referer);
+          return createProxyUrl(originalUrl, referer, ctx.features);
         } catch (jsonError) {
           console.error('Error decoding/parsing orbitproxy data:', jsonError);
         }
@@ -85,7 +85,7 @@ async function comboScraper(ctx: ShowScrapeContext | MovieScrapeContext): Promis
 
   const processedServers = servers.map((server) => ({
     ...server,
-    url: processProxiedURL(server.url),
+    url: processProxiedURL(server.url, ctx),
   }));
 
   const embeds: SourcererEmbed[] = processedServers.map((server) => ({

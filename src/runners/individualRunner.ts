@@ -31,6 +31,7 @@ export async function scrapeInvidualSource(
   const contextBase: ScrapeContext = {
     fetcher: ops.fetcher,
     proxiedFetcher: ops.proxiedFetcher,
+    features: ops.features,
     progress(val) {
       ops.events?.update?.({
         id: sourceScraper.id,
@@ -107,6 +108,7 @@ export async function scrapeIndividualEmbed(
   const output = await embedScraper.scrape({
     fetcher: ops.fetcher,
     proxiedFetcher: ops.proxiedFetcher,
+    features: ops.features,
     url,
     progress(val) {
       ops.events?.update?.({

@@ -59,6 +59,7 @@ export function makeVidifyEmbed(id: string, rank: number = 100) {
     name: `${id.charAt(0).toUpperCase() + id.slice(1)}`,
     rank,
     disabled: true,
+    flags: [],
     async scrape(ctx): Promise<EmbedOutput> {
       const query = JSON.parse(ctx.url);
       const { type, tmdbId, season, episode } = query;
@@ -132,7 +133,7 @@ export function makeVidifyEmbed(id: string, rank: number = 100) {
         playlist = decodeURIComponent(playlistUrl);
       } else {
         console.log(`Found normal stream: `, playlistUrl);
-        playlist = createM3U8ProxyUrl(decodeURIComponent(playlistUrl), streamHeaders);
+        playlist = createM3U8ProxyUrl(decodeURIComponent(playlistUrl), ctx.features, streamHeaders);
       }
 
       ctx.progress(100);

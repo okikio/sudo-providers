@@ -129,36 +129,44 @@ const providers = [
   },
 ];
 
-function embed(provider: { id: string; name: string; rank: number }) {
+function embed(provider: { id: string; name: string; rank: number; disabled?: boolean }) {
   return makeEmbed({
     id: provider.id,
     name: provider.name,
     rank: provider.rank,
+    flags: [flags.CORS_ALLOWED],
+    disabled: provider.disabled,
     async scrape(ctx) {
       const headers = {
         Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
         'Accept-Encoding': '*',
         'Accept-Language': 'en-US,en;q=0.9',
-        'User-Agent': 'Mozilla/5.0',
+        'User-Agent':
+          'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
       };
 
-      // console.log(`Fetching initial HTML from:`, ctx.url);
-      // console.log(`Request headers:`, headers);
+      const domains = [
+        'hgplaycdn.com',
+        'habetar.com',
+        'yuguaab.com',
+        'guxhag.com',
+        'auvexiug.com',
+        'xenolyzb.com',
+        'tryzendm.com',
+      ];
+      ctx.url = `https://${domains[Math.floor(Math.random() * domains.length)]}${ctx.url.replace('https://streamwish.to', '')}`;
 
       let html: string;
       try {
         html = await ctx.proxiedFetcher<string>(ctx.url, { headers });
-        // console.log(`Successfully fetched HTML (${html.length} chars)`);
       } catch (error) {
-        // console.error(`Failed to fetch initial HTML:`, error);
-        console.error(`Error details:`, {
+        console.error(`Error:`, {
           message: error instanceof Error ? error.message : 'Unknown error',
           cause: (error as any).cause || undefined,
           url: ctx.url,
         });
         throw error;
       }
-
       const obfuscatedScript = html.match(/<script[^>]*>\s*(eval\(function\(p,a,c,k,e,d.*?\)[\s\S]*?)<\/script>/);
 
       if (!obfuscatedScript) {
@@ -172,46 +180,15 @@ function embed(provider: { id: string; name: string; rank: number }) {
         return { stream: [], embeds: [{ embedId: provider.id, url: ctx.url }] };
       }
 
-      const linkMatches = Array.from(unpackedScript.matchAll(/"(hls2|hls4)"\s*:\s*"([^"]*\.m3u8[^"]*)"/g));
-      const links = linkMatches.map((match) => ({ key: match[1], url: match[2] }));
-
-      if (!links.length) {
+      const hls2Match = unpackedScript.match(/"hls2"\s*:\s*"([^"]+)"/);
+      if (!hls2Match) {
         return { stream: [], embeds: [{ embedId: provider.id, url: ctx.url }] };
       }
 
-      let videoUrl = links[0].url;
+      let videoUrl = hls2Match[1];
 
       if (!/^https?:\/\//.test(videoUrl)) {
-        videoUrl = `https://swiftplayers.com/${videoUrl.replace(/^\/+/g, '')}`;
-      }
-
-      // console.log(`Attempting to fetch m3u8 from:`, videoUrl);
-
-      try {
-        const m3u8Content = await ctx.proxiedFetcher<string>(videoUrl, {
-          headers: { Referer: ctx.url },
-        });
-        // console.log(`Successfully fetched m3u8 content (${m3u8Content.length} chars)`);
-
-        const variants = Array.from(
-          m3u8Content.matchAll(/#EXT-X-STREAM-INF:[^\n]+\n(?!iframe)([^\n]*index[^\n]*\.m3u8[^\n]*)/gi),
-        );
-
-        if (variants.length > 0) {
-          const best = variants.find((v) => /#EXT-X-STREAM-INF/.test(v.input || '')) || variants[0];
-          const base = videoUrl.substring(0, videoUrl.lastIndexOf('/') + 1);
-          videoUrl = base + best[1];
-        }
-      } catch (error) {
-        // console.error(`Failed to fetch m3u8 content:`, error);
-        // console.error(`m3u8 fetch error details:`, {
-        //   message: error instanceof Error ? error.message : 'Unknown error',
-        //   cause: (error as any).cause || undefined,
-        //   url: videoUrl,
-        //   referer: ctx.url,
-        // });
-        //
-        // Intentionally empty to suppress errors during variant fetching
+        videoUrl = `https://swiftplayers.com/${videoUrl.replace(/^\/+/, '')}`;
       }
 
       const videoHeaders = {
@@ -224,7 +201,8 @@ function embed(provider: { id: string; name: string; rank: number }) {
           {
             id: 'primary',
             type: 'hls',
-            playlist: createM3U8ProxyUrl(videoUrl, videoHeaders),
+            playlist: createM3U8ProxyUrl(videoUrl, ctx.features, videoHeaders),
+            headers: videoHeaders,
             flags: [flags.CORS_ALLOWED],
             captions: [],
           },

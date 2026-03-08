@@ -8,6 +8,7 @@ export const myanimedubScraper = makeEmbed({
   id: 'myanimedub',
   name: 'MyAnime (Dub)',
   rank: 205,
+  flags: [flags.CORS_ALLOWED],
   async scrape(ctx) {
     const streamData = await ctx.proxiedFetcher<any>(
       `https://anime.aether.mom/api/stream?id=${ctx.url}&server=HD-2&type=dub`,
@@ -33,9 +34,12 @@ export const myanimedubScraper = makeEmbed({
         {
           id: 'dub',
           type: 'hls',
-          playlist: createM3U8ProxyUrl(streamData.results.streamingLink.link.file, {
+          playlist: createM3U8ProxyUrl(streamData.results.streamingLink.link.file, ctx.features, {
             Referer: 'https://rapid-cloud.co/',
           }),
+          headers: {
+            Referer: 'https://rapid-cloud.co/',
+          },
           flags: [flags.CORS_ALLOWED],
           captions:
             (streamData.results.streamingLink.tracks

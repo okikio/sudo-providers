@@ -1,41 +1,31 @@
-import { flags } from '@/entrypoint/utils/targets';
-import { makeSourcerer } from '@/providers/base';
+import { SourcererOutput, makeSourcerer } from '@/providers/base';
 import { MovieScrapeContext, ShowScrapeContext } from '@/utils/context';
 
-const backendUrl = 'https://backend.vidnest.fun';
+async function comboScraper(ctx: ShowScrapeContext | MovieScrapeContext): Promise<SourcererOutput> {
+  const query: Record<string, any> = {
+    type: ctx.media.type,
+    tmdbId: ctx.media.tmdbId,
+  };
 
-const servers = ['hollymoviehd', 'allmovies', 'flixhq', 'official'];
-
-async function scrape(ctx: MovieScrapeContext | ShowScrapeContext, type: 'movie' | 'tv') {
-  const embeds = [];
-
-  for (const server of servers) {
-    let url = '';
-    if (type === 'movie') {
-      url = `${backendUrl}/${server}/movie/${ctx.media.tmdbId}`;
-    } else if (ctx.media.type === 'show') {
-      url = `${backendUrl}/${server}/tv/${ctx.media.tmdbId}/${ctx.media.season.number}/${ctx.media.episode.number}`;
-    }
-
-    embeds.push({
-      embedId: `vidnest-${server}`,
-      url,
-    });
+  if (ctx.media.type === 'show') {
+    query.season = ctx.media.season.number;
+    query.episode = ctx.media.episode.number;
   }
 
   return {
-    embeds,
+    embeds: [
+      { embedId: 'vidnest-hollymoviehd', url: JSON.stringify(query) },
+      { embedId: 'vidnest-allmovies', url: JSON.stringify(query) },
+    ],
   };
 }
 
-const vidnestScraper = makeSourcerer({
+export const vidnestScraper = makeSourcerer({
   id: 'vidnest',
   name: 'Vidnest',
-  rank: 130,
-  disabled: true,
-  flags: [flags.CORS_ALLOWED],
-  scrapeMovie: (ctx: MovieScrapeContext) => scrape(ctx, 'movie'),
-  scrapeShow: (ctx: ShowScrapeContext) => scrape(ctx, 'tv'),
+  rank: 115,
+  flags: [],
+  disabled: true, // The streams cause the site to crash
+  scrapeMovie: comboScraper,
+  scrapeShow: comboScraper,
 });
-
-export default vidnestScraper;
