@@ -8,5 +8,7 @@ Support is not provided for any forks or mirrors of P-Stream.
 
 ## Reporting a Vulnerability
 
-Report an issue from Github issues or via email on Github.
+Please do not report security vulnerabilities via public GitHub issues.
+
+Instead, report vulnerabilities privately using GitHub Security Advisories by selecting "Security" and then "Report a vulnerability" in this repository.
 

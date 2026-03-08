@@ -1,10 +1,20 @@
 import { FeatureMap, flags } from '@/entrypoint/utils/targets';
 import { Stream } from '@/providers/streams';
 
-// Default proxy URL for general purpose proxying
-const DEFAULT_PROXY_URL = 'https://proxy.example.com';
-// Default M3U8 proxy URL for HLS stream proxying
-let CONFIGURED_M3U8_PROXY_URL = 'https://proxy.example.com';
+// Configurable proxy URL for general-purpose stream proxying (setupProxy).
+// Must be set via setProxyUrl() before using proxyStreams: true.
+let CONFIGURED_PROXY_URL = '';
+// Configurable M3U8 proxy URL for HLS stream proxying.
+// Must be set via setM3U8ProxyUrl() before calling createM3U8ProxyUrl().
+let CONFIGURED_M3U8_PROXY_URL = '';
+
+/**
+ * Set the proxy URL used by setupProxy() (the proxyStreams payload endpoint).
+ * @param proxyUrl - The base URL of the stream proxy
+ */
+export function setProxyUrl(proxyUrl: string): void {
+  CONFIGURED_PROXY_URL = proxyUrl;
+}
 
 /**
  * Set a custom M3U8 proxy URL to use for all M3U8 proxy requests
@@ -29,6 +39,12 @@ export function requiresProxy(stream: Stream): boolean {
 }
 
 export function setupProxy(stream: Stream): Stream {
+  if (!CONFIGURED_PROXY_URL) {
+    throw new Error(
+      'Stream proxy URL is not configured. Call setProxyUrl() with your proxy base URL before enabling proxyStreams.',
+    );
+  }
+
   const headers = stream.headers && Object.keys(stream.headers).length > 0 ? stream.headers : undefined;
 
   const options = {
@@ -48,14 +64,14 @@ export function setupProxy(stream: Stream): Stream {
   if (stream.type === 'hls') {
     payload.type = 'hls';
     payload.url = stream.playlist;
-    stream.playlist = `${DEFAULT_PROXY_URL}?${new URLSearchParams({ payload: Buffer.from(JSON.stringify(payload)).toString('base64url') })}`;
+    stream.playlist = `${CONFIGURED_PROXY_URL}?${new URLSearchParams({ payload: Buffer.from(JSON.stringify(payload)).toString('base64url') })}`;
   }
 
   if (stream.type === 'file') {
     payload.type = 'mp4';
     Object.entries(stream.qualities).forEach((entry) => {
       payload.url = entry[1].url;
-      entry[1].url = `${DEFAULT_PROXY_URL}?${new URLSearchParams({ payload: Buffer.from(JSON.stringify(payload)).toString('base64url') })}`;
+      entry[1].url = `${CONFIGURED_PROXY_URL}?${new URLSearchParams({ payload: Buffer.from(JSON.stringify(payload)).toString('base64url') })}`;
     });
   }
 
@@ -76,6 +92,12 @@ export function createM3U8ProxyUrl(url: string, features?: FeatureMap, headers: 
   // The stream headers will handle the proxying through the extension/native environment
   if (features && !features.requires.includes(flags.CORS_ALLOWED)) {
     return url;
+  }
+
+  if (!CONFIGURED_M3U8_PROXY_URL) {
+    throw new Error(
+      'M3U8 proxy URL is not configured. Call setM3U8ProxyUrl() with your proxy base URL before creating proxied M3U8 URLs.',
+    );
   }
 
   // Otherwise, use the external M3U8 proxy

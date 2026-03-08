@@ -7,6 +7,18 @@ import { Stream } from '@/providers/streams';
 import { IndividualEmbedRunnerOptions } from '@/runners/individualRunner';
 import { ProviderRunnerOptions } from '@/runners/runner';
 
+/**
+ * Races a promise against a timeout, clearing the timer when the promise settles
+ * to avoid dangling timers and unhandled rejections.
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error('Timeout')), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 const SKIP_VALIDATION_CHECK_IDS = [
   warezcdnembedMp4Scraper.id,
   streamtapeScraper.id,
@@ -110,7 +122,7 @@ export async function validatePlayableStream(
       }
     } else {
       try {
-        result = await Promise.race([
+        result = await withTimeout(
           ops.proxiedFetcher.full(stream.playlist, {
             method: 'GET',
             headers: {
@@ -118,10 +130,8 @@ export async function validatePlayableStream(
               ...stream.headers,
             },
           }),
-          new Promise<never>((_, reject) => {
-            setTimeout(() => reject(new Error('Timeout')), 20000);
-          }),
-        ]);
+          20000,
+        );
       } catch {
         return null;
       }
@@ -158,7 +168,7 @@ export async function validatePlayableStream(
         }
 
         try {
-          return await Promise.race([
+          return await withTimeout(
             ops.proxiedFetcher.full(quality.url, {
               method: 'GET',
               headers: {
@@ -167,10 +177,8 @@ export async function validatePlayableStream(
                 Range: 'bytes=0-1',
               },
             }),
-            new Promise<never>((_, reject) => {
-              setTimeout(() => reject(new Error('Timeout')), 20000);
-            }),
-          ]);
+            20000,
+          );
         } catch {
           return { statusCode: 500, body: '', finalUrl: quality.url };
         }

@@ -3,6 +3,7 @@ import { customAlphabet } from 'nanoid';
 
 import { flags } from '@/entrypoint/utils/targets';
 import { makeEmbed } from '@/providers/base';
+import { EmbedScrapeContext } from '@/utils/context';
 
 const nanoid = customAlphabet('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789', 10);
 
@@ -33,7 +34,7 @@ function resolveAbsoluteUrl(base: string, maybeRelative: string): string {
   }
 }
 
-async function extractVideoUrl(ctx: any, streamingLink: string): Promise<string | null> {
+async function extractVideoUrl(ctx: EmbedScrapeContext, streamingLink: string): Promise<string | null> {
   try {
     const headers = {
       'User-Agent':
@@ -48,7 +49,6 @@ async function extractVideoUrl(ctx: any, streamingLink: string): Promise<string 
 
     const response = await ctx.proxiedFetcher.full(streamingLink, {
       headers,
-      allowRedirects: true,
     });
 
     const passMd5Match = extractFirst(response.body, PASS_MD5_PATTERNS);
@@ -59,9 +59,22 @@ async function extractVideoUrl(ctx: any, streamingLink: string): Promise<string 
     const baseUrl = `${response.finalUrl.split('://')[0]}://${response.finalUrl.split('://')[1].split('/')[0]}`;
     const passMd5Url = resolveAbsoluteUrl(baseUrl, passMd5Match);
 
+    // Forward cookies from the initial response via the Cookie request header
+    const setCookieHeader = response.headers.get('set-cookie');
+    const cookieHeaders: Record<string, string> = setCookieHeader
+      ? {
+          Cookie: setCookieHeader
+            .split(',')
+            .map((c) => c.split(';')[0].trim())
+            .join('; '),
+        }
+      : {};
+
     const passMd5Response = await ctx.proxiedFetcher(passMd5Url, {
-      headers,
-      cookies: response.cookies,
+      headers: {
+        ...headers,
+        ...cookieHeaders,
+      },
     });
 
     const videoUrl = passMd5Response.trim();

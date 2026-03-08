@@ -9,10 +9,10 @@ async function comboScraper(ctx: ShowScrapeContext | MovieScrapeContext): Promis
   try {
     if (ctx.media.type === 'movie') {
       const url = `${baseApiUrl}s?tmdb=${ctx.media.tmdbId}&type=movie`;
-      serverData = await fetch(url);
+      serverData = await ctx.proxiedFetcher.full<any>(url);
     } else {
       const url = `${baseApiUrl}s?tmdb=${ctx.media.tmdbId}&season=${ctx.media.season.number}&episode=${ctx.media.episode.number}&type=tv`;
-      serverData = await fetch(url);
+      serverData = await ctx.proxiedFetcher.full<any>(url);
     }
   } catch (error) {
     return { embeds: [] };
@@ -20,7 +20,7 @@ async function comboScraper(ctx: ShowScrapeContext | MovieScrapeContext): Promis
 
   let data;
   try {
-    data = await serverData.json();
+    data = typeof serverData.body === 'string' ? JSON.parse(serverData.body) : serverData.body;
   } catch (error) {
     return { embeds: [] };
   }
@@ -43,11 +43,11 @@ async function comboScraper(ctx: ShowScrapeContext | MovieScrapeContext): Promis
     }
     if (nameToEmbedId[server.name]) {
       try {
-        const linkData = await fetch(`${baseApiUrl}l?key=${server.key}`);
-        if (linkData.status !== 200) {
+        const linkData = await ctx.proxiedFetcher.full<any>(`${baseApiUrl}l?key=${server.key}`);
+        if (linkData.statusCode !== 200) {
           continue;
         }
-        const linkJson = await linkData.json();
+        const linkJson = typeof linkData.body === 'string' ? JSON.parse(linkData.body) : linkData.body;
         if (linkJson.link) {
           const embed = {
             embedId: nameToEmbedId[server.name],
