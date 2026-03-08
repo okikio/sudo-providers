@@ -4,44 +4,15 @@ import { flags } from '@/entrypoint/utils/targets';
 import { SourcererOutput, makeSourcerer } from '@/providers/base';
 import { MovieScrapeContext, ShowScrapeContext } from '@/utils/context';
 import { NotFoundError } from '@/utils/errors';
+import { fetchTMDBName } from '@/utils/tmdb';
 
 const baseUrl = 'https://watchanimeworld.in';
 const zephyrBaseUrl = 'https://play.zephyrflick.top';
-const tmdbApiKey = '5b9790d9305dca8713b9a0afad42ea8d'; // Same key used in hianime
-
-interface TMDBShowResponse {
-  name: string;
-  original_name: string;
-}
-
-interface TMDBMovieResponse {
-  title: string;
-  original_title: string;
-}
 
 interface ZephyrStreamResponse {
   hls: boolean;
   videoSource: string;
   securedLink: string;
-}
-
-async function fetchTMDBData(tmdbId: string | number, mediaType: 'movie' | 'tv'): Promise<string> {
-  const endpoint = mediaType === 'movie' ? 'movie' : 'tv';
-  const response = await fetch(`https://api.themoviedb.org/3/${endpoint}/${tmdbId}?api_key=${tmdbApiKey}`);
-
-  if (!response.ok) {
-    throw new NotFoundError('Failed to fetch TMDB data');
-  }
-
-  const data = await response.json();
-
-  // Return the English title, falling back to original title
-  if (mediaType === 'movie') {
-    const movieData = data as TMDBMovieResponse;
-    return movieData.title || movieData.original_title;
-  }
-  const showData = data as TMDBShowResponse;
-  return showData.name || showData.original_name;
 }
 
 function normalizeTitle(title: string): string {
@@ -56,12 +27,10 @@ function normalizeTitle(title: string): string {
 }
 
 async function comboScraper(ctx: ShowScrapeContext | MovieScrapeContext): Promise<SourcererOutput> {
-  // Determine if this is a TV show based on context
-  const isTVShow = 'season' in ctx.media;
-  const endpoint = isTVShow ? 'tv' : 'movie';
-
-  // Get the title from TMDB
-  const title = await fetchTMDBData(ctx.media.tmdbId, endpoint);
+  // Get the title via the shared TMDB helper (uses ctx.fetcher, respects proxy)
+  const title = await fetchTMDBName(ctx).catch(() => {
+    throw new NotFoundError('Failed to fetch TMDB data');
+  });
   const normalizedTitle = normalizeTitle(title);
 
   // Build the watchanimeworld URL
@@ -77,7 +46,6 @@ async function comboScraper(ctx: ShowScrapeContext | MovieScrapeContext): Promis
   ctx.progress(30);
 
   // Fetch the watch page
-
   const watchPage = await ctx.proxiedFetcher(watchUrl, {
     headers: {
       'User-Agent':

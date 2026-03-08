@@ -58,7 +58,7 @@ function embed(provider: { id: string; name: string; rank: number }) {
       // Create proxy URL with headers if provided
       let playlistUrl = streamData.link;
       if (streamData.headers && Object.keys(streamData.headers).length > 0) {
-        playlistUrl = createM3U8ProxyUrl(streamData.link, streamData.headers);
+        playlistUrl = createM3U8ProxyUrl(streamData.link, ctx.features, streamData.headers);
       }
 
       return {

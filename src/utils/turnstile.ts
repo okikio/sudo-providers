@@ -89,7 +89,7 @@ export async function getTurnstileToken(sitekey: string, timeout: number = 30000
 
     return new Promise<string>((resolve, reject) => {
       let widgetId: string;
-      let timeoutId: NodeJS.Timeout;
+      let timeoutId: ReturnType<typeof setTimeout>;
 
       const cleanup = () => {
         if (timeoutId) clearTimeout(timeoutId);
