@@ -75,41 +75,49 @@ const embedD = makeEmbed({
   id: 'd',
   rank: 4,
   disabled: false,
+  flags: [],
 } as any);
 const embedA = makeEmbed({
   id: 'a',
   rank: 5,
   disabled: false,
+  flags: [],
 } as any);
 const embedEDisabled = makeEmbed({
   id: 'e',
   rank: 6,
   disabled: true,
+  flags: [],
 } as any);
 const embedDHigherRank = makeEmbed({
   id: 'd',
   rank: 4000,
   disabled: false,
+  flags: [],
 } as any);
 const embedFSameRankAsA = makeEmbed({
   id: 'f',
   rank: 5,
   disabled: false,
+  flags: [],
 } as any);
 const embedHSameRankAsSourceA = makeEmbed({
   id: 'h',
   rank: 1,
   disabled: false,
+  flags: [],
 } as any);
 const fullEmbedX = makeEmbed({
   id: 'x',
   name: 'X',
   rank: 104,
+  flags: [],
 } as any);
 const fullEmbedZ = makeEmbed({
   id: 'z',
   name: 'Z',
   rank: 109,
+  flags: [],
 } as any);
 
 export const mockSources = {

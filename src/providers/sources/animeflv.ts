@@ -10,7 +10,11 @@ const baseUrl = 'https://www3.animeflv.net';
 
 async function searchAnimeFlv(ctx: ShowScrapeContext | MovieScrapeContext, title: string): Promise<string> {
   const searchUrl = `${baseUrl}/browse?q=${encodeURIComponent(title)}`;
-  const html = await ctx.proxiedFetcher(searchUrl);
+  const html = await ctx.proxiedFetcher(searchUrl, {
+    headers: {
+      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    },
+  });
   const $ = load(html);
 
   const results = $('div.Container ul.ListAnimes li article');
@@ -39,7 +43,11 @@ async function getEpisodes(
   ctx: ShowScrapeContext | MovieScrapeContext,
   animeUrl: string,
 ): Promise<{ number: number; url: string }[]> {
-  const html = await ctx.proxiedFetcher(animeUrl);
+  const html = await ctx.proxiedFetcher(animeUrl, {
+    headers: {
+      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    },
+  });
   const $ = load(html);
 
   let episodes: { number: number; url: string }[] = [];
@@ -74,7 +82,11 @@ async function getEmbeds(
   ctx: ShowScrapeContext | MovieScrapeContext,
   episodeUrl: string,
 ): Promise<{ [key: string]: string | undefined }> {
-  const html = await ctx.proxiedFetcher(episodeUrl);
+  const html = await ctx.proxiedFetcher(episodeUrl, {
+    headers: {
+      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    },
+  });
   const $ = load(html);
 
   // Busca el script que contiene la variable videos
@@ -87,7 +99,7 @@ async function getEmbeds(
 
   let videos: any = {};
   try {
-    videos = eval(`(${match[1]})`);
+    videos = JSON.parse(match[1]);
   } catch {
     return {};
   }
@@ -143,7 +155,11 @@ async function comboScraper(ctx: ShowScrapeContext | MovieScrapeContext): Promis
 
     episodeUrl = ep.url;
   } else if (ctx.media.type === 'movie') {
-    const html = await ctx.proxiedFetcher(animeUrl);
+    const html = await ctx.proxiedFetcher(animeUrl, {
+      headers: {
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      },
+    });
     const $ = load(html);
 
     let animeUri: string | null = null;
@@ -178,7 +194,7 @@ export const animeflvScraper = makeSourcerer({
   id: 'animeflv',
   name: 'AnimeFLV',
   rank: 90,
-  disabled: true,
+  disabled: false,
   flags: [flags.CORS_ALLOWED],
   scrapeShow: comboScraper,
   scrapeMovie: comboScraper,

@@ -4,6 +4,7 @@ import { flags } from '@/entrypoint/utils/targets';
 import { SourcererOutput, makeSourcerer } from '@/providers/base';
 import { MovieScrapeContext, ShowScrapeContext } from '@/utils/context';
 import { NotFoundError } from '@/utils/errors';
+import { fetchTMDBName } from '@/utils/tmdb';
 
 const baseUrl = 'https://www.cuevana3.eu';
 
@@ -88,40 +89,15 @@ async function extractVideos(ctx: MovieScrapeContext | ShowScrapeContext, videos
   return videoList;
 }
 
-async function fetchTmdbTitleInSpanish(tmdbId: number, apiKey: string, mediaType: 'movie' | 'show'): Promise<string> {
-  const endpoint =
-    mediaType === 'movie'
-      ? `https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${apiKey}&language=es-ES`
-      : `https://api.themoviedb.org/3/tv/${tmdbId}?api_key=${apiKey}&language=es-ES`;
-
-  const response = await fetch(endpoint);
-  if (!response.ok) {
-    throw new Error(`Error fetching TMDB data: ${response.statusText}`);
-  }
-  const tmdbData = await response.json();
-  return mediaType === 'movie' ? tmdbData.title : tmdbData.name;
-}
-
-async function fetchTitleSubstitutes(): Promise<Record<string, string>> {
-  try {
-    const response = await fetch('https://raw.githubusercontent.com/moonpic/fixed-titles/refs/heads/main/main.json');
-    if (!response.ok) throw new Error('Failed to fetch fallback titles');
-    return await response.json();
-  } catch {
-    return {};
-  }
-}
-
 async function comboScraper(ctx: ShowScrapeContext | MovieScrapeContext): Promise<SourcererOutput> {
   const mediaType = ctx.media.type;
   const tmdbId = ctx.media.tmdbId;
-  const apiKey = '7604525319adb2db8e7e841cb98e9217';
 
   if (!tmdbId) {
     throw new NotFoundError('TMDB ID is required to fetch the title in Spanish');
   }
 
-  const translatedTitle = await fetchTmdbTitleInSpanish(Number(tmdbId), apiKey, mediaType);
+  const translatedTitle = await fetchTMDBName(ctx, 'es-ES');
   let normalizedTitle = normalizeTitle(translatedTitle);
 
   let pageUrl =
@@ -169,14 +145,7 @@ async function comboScraper(ctx: ShowScrapeContext | MovieScrapeContext): Promis
   }
 
   if (embeds.length === 0) {
-    const fallbacks = await fetchTitleSubstitutes();
-    const fallbackTitle = fallbacks[tmdbId.toString()];
-
-    if (!fallbackTitle) {
-      throw new NotFoundError('No embed data found and no fallback title available');
-    }
-
-    normalizedTitle = normalizeTitle(fallbackTitle);
+    normalizedTitle = normalizeTitle(ctx.media.title);
     pageUrl =
       mediaType === 'movie'
         ? `${baseUrl}/ver-pelicula/${normalizedTitle}`
@@ -228,7 +197,7 @@ export const cuevana3Scraper = makeSourcerer({
   id: 'cuevana3',
   name: 'Cuevana3',
   rank: 80,
-  disabled: true,
+  disabled: false,
   flags: [flags.CORS_ALLOWED],
   scrapeMovie: comboScraper,
   scrapeShow: comboScraper,

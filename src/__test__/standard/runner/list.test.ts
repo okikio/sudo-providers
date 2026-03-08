@@ -24,6 +24,7 @@ describe('ProviderControls.listSources()', () => {
         id: 'y',
         rank: mockSources.fullSourceYMovie.rank,
         name: 'Y',
+        flags: [],
         mediaTypes: ['movie'],
       },
     ]);
@@ -42,6 +43,7 @@ describe('ProviderControls.listSources()', () => {
         id: 'y',
         rank: mockSources.fullSourceYShow.rank,
         name: 'Y',
+        flags: [],
         mediaTypes: ['show'],
       },
     ]);
@@ -60,6 +62,7 @@ describe('ProviderControls.listSources()', () => {
         id: 'z',
         rank: mockSources.fullSourceZBoth.rank,
         name: 'Z',
+        flags: [],
         mediaTypes: ['movie', 'show'],
       },
     ]);
@@ -104,6 +107,7 @@ describe('ProviderControls.getAllEmbedMetaSorted()', () => {
         id: 'x',
         rank: mockEmbeds.fullEmbedX.rank,
         name: 'X',
+        flags: [],
       },
     ]);
   });

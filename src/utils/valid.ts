@@ -1,6 +1,7 @@
 // import { alphaScraper, deltaScraper } from '@/providers/embeds/nsbx';
 // import { astraScraper, novaScraper, orionScraper } from '@/providers/embeds/whvx';
 import { bombtheirishScraper } from '@/providers/archive/sources/bombtheirish';
+import { streamtapeScraper } from '@/providers/embeds/streamtape';
 import { warezcdnembedMp4Scraper } from '@/providers/embeds/warezcdn/mp4';
 import { Stream } from '@/providers/streams';
 import { IndividualEmbedRunnerOptions } from '@/runners/individualRunner';
@@ -8,6 +9,7 @@ import { ProviderRunnerOptions } from '@/runners/runner';
 
 const SKIP_VALIDATION_CHECK_IDS = [
   warezcdnembedMp4Scraper.id,
+  streamtapeScraper.id,
   // deltaScraper.id,
   // alphaScraper.id,
   // novaScraper.id,
@@ -41,7 +43,28 @@ export function isValidStream(stream: Stream | undefined): boolean {
  * instead of proxiedFetcher
  */
 function isAlreadyProxyUrl(url: string): boolean {
-  return url.includes('/m3u8-proxy?url=');
+  return url.includes('/m3u8-proxy?url=') || url.includes('shegu.net');
+}
+
+/**
+ * Check if a response result indicates an invalid/error response that should fail validation
+ */
+function isErrorResponse(result: { statusCode: number; body: string | any; finalUrl?: string }): boolean {
+  if (result.statusCode === 403) return true;
+
+  const bodyStr = typeof result.body === 'string' ? result.body : String(result.body);
+  if (result.statusCode === 200 && bodyStr.trim() === 'error_wrong_ip') return true;
+
+  if (result.statusCode === 200) {
+    try {
+      const parsed = JSON.parse(bodyStr);
+      if (parsed.status === 403 && parsed.msg === 'Access Denied') return true;
+    } catch {
+      // Not JSON, continue
+    }
+  }
+
+  return false;
 }
 
 export async function validatePlayableStream(
@@ -50,6 +73,7 @@ export async function validatePlayableStream(
   sourcererId: string,
 ): Promise<Stream | null> {
   if (SKIP_VALIDATION_CHECK_IDS.includes(sourcererId)) return stream;
+  if (stream.skipValidation) return stream;
 
   const alwaysUseNormalFetch = UNPROXIED_VALIDATION_CHECK_IDS.includes(sourcererId);
 
@@ -68,6 +92,7 @@ export async function validatePlayableStream(
             ...stream.preferredHeaders,
             ...stream.headers,
           },
+          signal: AbortSignal.timeout(20000),
         });
         result = {
           statusCode: response.status,
@@ -78,16 +103,25 @@ export async function validatePlayableStream(
         return null;
       }
     } else {
-      result = await ops.proxiedFetcher.full(stream.playlist, {
-        method: 'GET',
-        headers: {
-          ...stream.preferredHeaders,
-          ...stream.headers,
-        },
-      });
+      try {
+        result = await Promise.race([
+          ops.proxiedFetcher.full(stream.playlist, {
+            method: 'GET',
+            headers: {
+              ...stream.preferredHeaders,
+              ...stream.headers,
+            },
+          }),
+          new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('Timeout')), 20000);
+          }),
+        ]);
+      } catch {
+        return null;
+      }
     }
 
-    if (result.statusCode < 200 || result.statusCode >= 400) return null;
+    if (result.statusCode < 200 || result.statusCode >= 400 || isErrorResponse(result)) return null;
     return stream;
   }
 
@@ -105,6 +139,7 @@ export async function validatePlayableStream(
                 ...stream.headers,
                 Range: 'bytes=0-1',
               },
+              signal: AbortSignal.timeout(20000),
             });
             return {
               statusCode: response.status,
@@ -116,20 +151,33 @@ export async function validatePlayableStream(
           }
         }
 
-        return ops.proxiedFetcher.full(quality.url, {
-          method: 'GET',
-          headers: {
-            ...stream.preferredHeaders,
-            ...stream.headers,
-            Range: 'bytes=0-1',
-          },
-        });
+        try {
+          return await Promise.race([
+            ops.proxiedFetcher.full(quality.url, {
+              method: 'GET',
+              headers: {
+                ...stream.preferredHeaders,
+                ...stream.headers,
+                Range: 'bytes=0-1',
+              },
+            }),
+            new Promise<never>((_, reject) => {
+              setTimeout(() => reject(new Error('Timeout')), 20000);
+            }),
+          ]);
+        } catch {
+          return { statusCode: 500, body: '', finalUrl: quality.url };
+        }
       }),
     );
     // remove invalid qualities from the stream
     const validQualities = stream.qualities;
     Object.keys(stream.qualities).forEach((quality, index) => {
-      if (validQualitiesResults[index].statusCode < 200 || validQualitiesResults[index].statusCode >= 400) {
+      if (
+        validQualitiesResults[index].statusCode < 200 ||
+        validQualitiesResults[index].statusCode >= 400 ||
+        isErrorResponse(validQualitiesResults[index])
+      ) {
         delete validQualities[quality as keyof typeof stream.qualities];
       }
     });

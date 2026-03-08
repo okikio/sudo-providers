@@ -19,6 +19,7 @@ function embed(provider: { id: string; name: string; rank: number }) {
     id: provider.id,
     name: provider.name,
     rank: provider.rank,
+    flags: [flags.CORS_ALLOWED], // No longer IP locked
     async scrape(ctx) {
       const embedHtml = await ctx.proxiedFetcher<string>(ctx.url);
 
@@ -35,7 +36,7 @@ function embed(provider: { id: string; name: string; rank: number }) {
           {
             id: 'primary',
             type: 'file',
-            flags: [flags.CORS_ALLOWED, flags.IP_LOCKED],
+            flags: [flags.CORS_ALLOWED], // No longer IP locked
             captions: [],
             qualities: {
               unknown: {
@@ -43,7 +44,7 @@ function embed(provider: { id: string; name: string; rank: number }) {
                 url,
               },
             },
-            headers: {
+            preferredHeaders: {
               Referer: 'https://streamtape.com',
             },
           },

@@ -1,9 +1,10 @@
 name: Publish docs
 
 on:
+  workflow_dispatch:
   push:
     branches:
-      - master
+      - production
 
 jobs:
   build:
@@ -12,17 +13,17 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 8
 
       - name: Install Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v4
         with:
-          node-version: 24
-          cache: "pnpm"
+          node-version: 20
+          cache: 'pnpm'
 
       - name: Install packages
         working-directory: ./.docs
@@ -35,7 +36,7 @@ jobs:
           NUXT_APP_BASE_URL: /providers/
 
       - name: Upload production-ready build files
-        uses: actions/upload-pages-artifact@v1
+        uses: actions/upload-pages-artifact@v3
         with:
           path: ./.docs/.output/public
 
