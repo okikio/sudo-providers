@@ -80,7 +80,13 @@ async function scrapeMovie(ctx: MovieScrapeContext): Promise<SourcererOutput> {
   ctx.progress(60);
 
   const playerUrl = atob(rtt(playerMatch[1]));
-  const isVidmoxy = playerUrl.startsWith('https://vidmoxy.com');
+  const isVidmoxy = (() => {
+    try {
+      return new URL(playerUrl).hostname === 'vidmoxy.com';
+    } catch {
+      return false;
+    }
+  })();
 
   const playerResponse = await ctx.proxiedFetcher<string>(playerUrl + (isVidmoxy ? '?vst=1' : ''), {
     headers: {

@@ -10,7 +10,7 @@ const M3U8_REGEX = /https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*/gi;
 
 function extractScripts(html: string): string[] {
   const out: string[] = [];
-  const re = /<script[^>]*>([\s\S]*?)<\/script>/gi;
+  const re = /<script[^>]*>([\s\S]*?)<\/script\s*>/gi;
   let m: RegExpExecArray | null;
   // eslint-disable-next-line no-cond-assign
   while ((m = re.exec(html))) {
