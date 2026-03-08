@@ -43,7 +43,13 @@ export function isValidStream(stream: Stream | undefined): boolean {
  * instead of proxiedFetcher
  */
 function isAlreadyProxyUrl(url: string): boolean {
-  return url.includes('/m3u8-proxy?url=') || url.includes('shegu.net');
+  if (url.includes('/m3u8-proxy?url=')) return true;
+  try {
+    const hostname = new URL(url).hostname;
+    return hostname === 'shegu.net' || hostname.endsWith('.shegu.net');
+  } catch {
+    return false;
+  }
 }
 
 /**
