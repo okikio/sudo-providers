@@ -1,7 +1,6 @@
 import { makeStandardFetcher } from '@/fetchers/standardFetch';
 import { DefaultedFetcherOptions } from '@/fetchers/types';
 import { Headers } from 'node-fetch';
-import { AbortController } from 'abort-controller';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 describe('makeStandardFetcher()', () => {
@@ -18,7 +17,7 @@ describe('makeStandardFetcher()', () => {
         headers: new Headers({
           'content-type': 'text/plain',
         }),
-        status: 204,
+        status: 200,
         url: 'test123',
         text() {
           return Promise.resolve(value);
@@ -29,7 +28,7 @@ describe('makeStandardFetcher()', () => {
         headers: new Headers({
           'content-type': 'application/json',
         }),
-        status: 204,
+        status: 200,
         url: 'test123',
         json() {
           return Promise.resolve(value);
@@ -49,11 +48,12 @@ describe('makeStandardFetcher()', () => {
     expect((async () => Array.from((await prom).headers.entries()))()).resolves.toEqual(
       Array.from(new Headers().entries()),
     );
-    expect((async () => (await prom).statusCode)()).resolves.toEqual(204);
+    expect((async () => (await prom).statusCode)()).resolves.toEqual(200);
     expect((async () => (await prom).finalUrl)()).resolves.toEqual('test123');
-    const controller = new AbortController();
-    ops.output.signal = controller.signal;
-    expect(fetch).toBeCalledWith(ops.outputUrl ?? ops.inputUrl, ops.output);
+    expect(fetch).toBeCalledWith(
+      ops.outputUrl ?? ops.inputUrl,
+      expect.objectContaining({ ...ops.output, signal: expect.any(AbortSignal) }),
+    );
     vi.clearAllMocks();
   }
 
